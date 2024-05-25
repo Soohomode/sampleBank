@@ -1,9 +1,11 @@
 package com.dayone.web;
 
 import com.dayone.model.Company;
+import com.dayone.model.constants.CacheKey;
 import com.dayone.persist.entity.CompanyEntity;
 import com.dayone.service.CompanyService;
 import lombok.AllArgsConstructor;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,8 @@ import java.util.List;
 public class CompanyController {
 
     private final CompanyService companyService;
+
+    private final CacheManager redisCacheManager;
 
     // 배당금 조회 할때 자동완성 api
     @GetMapping("/autocomplete")
@@ -42,7 +46,7 @@ public class CompanyController {
      * @return
      */
     @PostMapping
-    @PreAuthorize("hasRole('WRITE')")
+    @PreAuthorize("hasRole('WRITE')") // 관리자 계정만 사용가능
     public ResponseEntity<?> addCompany(@RequestBody Company request) {
         String ticker = request.getTicker().trim();
         if (ObjectUtils.isEmpty(ticker)) {
@@ -55,9 +59,16 @@ public class CompanyController {
     }
 
     // 회사를 삭제하는 api
-    @DeleteMapping
-    public ResponseEntity<?> deleteCompany() {
-        return null;
+    @DeleteMapping("/{ticker}")
+    @PreAuthorize("hasRole('WRITE')") // 관리자 계정만 사용가능
+    public ResponseEntity<?> deleteCompany(@PathVariable String ticker) {
+        String companyName = this.companyService.deleteCompany(ticker);
+        this.clearFinanceCache(companyName);
+        return ResponseEntity.ok(companyName);
+    }
+
+    public void clearFinanceCache(String companyName) { // 캐쉬 데이터도 지워줘야 한다
+        this.redisCacheManager.getCache(CacheKey.KEY_FINANCE).evict(companyName);
     }
 
 }
