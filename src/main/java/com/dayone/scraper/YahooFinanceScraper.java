@@ -65,10 +65,7 @@ public class YahooFinanceScraper implements Scraper {
                     throw new RuntimeException("Unexpected Month enum value -> " + splits[0]);
                 }
 
-                dividends.add(Dividend.builder()
-                        .date(LocalDateTime.of(year, month, day, 0, 0))
-                        .dividend(dividend)
-                        .build());
+                dividends.add(new Dividend(LocalDateTime.of(year, month, day, 0, 0), dividend));
 
 //                System.out.println(year + "/" + month + "/" + day + " -> " + dividend);
 
@@ -91,15 +88,26 @@ public class YahooFinanceScraper implements Scraper {
         try {
             Document document = Jsoup.connect(url).get();
             Element titleEle = document.getElementsByTag("h1").get(0);
-            String title = titleEle.text().split(" - ")[1].trim();
-            // 예를들어 abc - def - hij 가 있으면 def를 가져온다 앞뒤 공백을 제거한
-            return Company.builder()
-                    .ticker(ticker)
-                    .name(title)
-                    .build();
+            String fullTitle = titleEle.text();
+            String title;
+
+            // Split the title and handle various formats
+            String[] titleParts = fullTitle.split(" - ");
+            if (titleParts.length >= 2) {
+                title = titleParts[1].trim();
+            } else {
+                title = fullTitle.trim();
+            }
+
+            return new Company(ticker, title);
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Log the exception for debugging
+            System.err.println("Unexpected title format: " + e.getMessage());
         }
+
         return null;
     }
 
